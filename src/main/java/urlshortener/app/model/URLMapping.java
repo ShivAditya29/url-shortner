@@ -21,6 +21,9 @@ public class URLMapping {
     
     @Column(nullable = false)
     private Long createdAt;
+    
+    @Column(nullable = true)
+    private Long expiresAt;
 
     public URLMapping() {
     }
@@ -30,6 +33,15 @@ public class URLMapping {
         this.longUrl = longUrl;
         this.urlHash = urlHash;
         this.createdAt = System.currentTimeMillis();
+        this.expiresAt = null; // No expiry by default
+    }
+
+    public URLMapping(String shortKey, String longUrl, String urlHash, Long expiresAt) {
+        this.shortKey = shortKey;
+        this.longUrl = longUrl;
+        this.urlHash = urlHash;
+        this.createdAt = System.currentTimeMillis();
+        this.expiresAt = expiresAt;
     }
 
     public Long getId() {
@@ -70,5 +82,17 @@ public class URLMapping {
 
     public void setCreatedAt(Long createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Long expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public boolean isExpired() {
+        return expiresAt != null && System.currentTimeMillis() > expiresAt;
     }
 }

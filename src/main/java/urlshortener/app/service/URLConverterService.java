@@ -27,6 +27,10 @@ public class URLConverterService {
     }
 
     public String shortenURL(String localURL, String longUrl) {
+        return shortenURL(localURL, longUrl, null);
+    }
+
+    public String shortenURL(String localURL, String longUrl, Long expiresAt) {
         LOGGER.info("Shortening {}", longUrl);
         
         // Generate hash of the long URL for idempotency
@@ -72,7 +76,7 @@ public class URLConverterService {
         String uniqueID = IDConverter.INSTANCE.createUniqueID(id);
         
         // Save to database (source of truth)
-        URLMapping newMapping = new URLMapping(uniqueID, longUrl, urlHash);
+        URLMapping newMapping = new URLMapping(uniqueID, longUrl, urlHash, expiresAt);
         dbRepository.save(newMapping);
         LOGGER.info("[DB WRITE] Saved to database: {}", uniqueID);
         
@@ -106,10 +110,21 @@ public class URLConverterService {
             throw new Exception("URL for short key " + uniqueID + " does not exist");
         }
         
-        longUrl = mapping.get().getLongUrl();
+        URLMapping urlMapping = mapping.get();
+        
+        // Step 3: Check if URL has expired
+        if (urlMapping.isExpired()) {
+            LOGGER.info("[EXPIRY] URL has expired: {}", uniqueID);
+            // Lazy deletion - delete the expired record
+            dbRepository.delete(urlMapping);
+            LOGGER.info("[CLEANUP] Deleted expired URL from database: {}", uniqueID);
+            throw new Exception("URL for short key " + uniqueID + " has expired");
+        }
+        
+        longUrl = urlMapping.getLongUrl();
         LOGGER.info("[DB HIT] Retrieved from database: {}", longUrl);
         
-        // Step 3: Repopulate cache with TTL
+        // Step 4: Repopulate cache with TTL
         LOGGER.info("[CACHE WRITE] Repopulating cache with TTL");
         urlRepository.saveUrl("url:" + dictionaryKey, longUrl);
         

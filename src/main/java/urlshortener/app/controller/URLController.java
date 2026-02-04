@@ -56,7 +56,7 @@ public class URLController {
         String longUrl = shortenRequest.getUrl();
         if (URLValidator.INSTANCE.validateURL(longUrl)) {
             String localURL = request.getRequestURL().toString();
-            String shortenedUrl = urlConverterService.shortenURL(localURL, shortenRequest.getUrl());
+            String shortenedUrl = urlConverterService.shortenURL(localURL, shortenRequest.getUrl(), shortenRequest.getExpiresAt());
             
             // Initialize analytics for new URL
             String shortKey = shortenedUrl.substring(shortenedUrl.lastIndexOf('/') + 1);
@@ -111,6 +111,7 @@ public class URLController {
 
 class ShortenRequest{
     private String url;
+    private Long expiresAt;
 
     @JsonCreator
     public ShortenRequest() {
@@ -118,8 +119,9 @@ class ShortenRequest{
     }
 
     @JsonCreator
-    public ShortenRequest(@JsonProperty("url") String url) {
+    public ShortenRequest(@JsonProperty("url") String url, @JsonProperty("expiresAt") Long expiresAt) {
         this.url = url;
+        this.expiresAt = expiresAt;
     }
 
     public String getUrl() {
@@ -128,6 +130,14 @@ class ShortenRequest{
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public Long getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Long expiresAt) {
+        this.expiresAt = expiresAt;
     }
 }
 
