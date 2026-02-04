@@ -27,6 +27,9 @@ Hash the input URL. If we've seen it before, return the same short code instead 
 ### Cache-Aside Pattern (Redis + Database)
 Redis is the fast layer (24-hour TTL), database is the source of truth. On cache miss, we load from DB and repopulate Redis. On creation, we write to both.
 
+### URL Expiry Enforcement
+URLs can optionally expire. When you try to visit an expired URL, it returns 404 and deletes the record (lazy deletion). A daily background job runs at midnight to clean up expired URLs in bulk.
+
 ### Analytics with Eventual Consistency
 Atomic Redis counters for every redirect (super fast, no locks). When you ask for stats, we sync from Redis to the database. We don't need real-time exact counts—eventual consistency is fine for analytics and keeps the hot path blazingly fast.
 
@@ -46,11 +49,25 @@ Content-Type: application/json
 ```
 Returns: `http://localhost:8080/aB3`
 
+**Shorten a URL with expiry (optional)**
+```bash
+POST http://localhost:8080/shortener
+Content-Type: application/json
+
+{
+  "url": "https://example.com/very/long/url",
+  "expiresAt": 1737220000000
+}
+```
+`expiresAt` is a Unix timestamp in milliseconds. Optional—omit for no expiry.
+
 **Visit a short URL**
 ```bash
 GET http://localhost:8080/aB3
 ```
 Redirects to original URL and increments click count.
+
+Returns 404 if the URL doesn't exist or has expired.
 
 **Get stats**
 ```bash
@@ -84,6 +101,7 @@ GET http://localhost:8080/stats/aB3
 **URLConverterService** → Manages cache-aside logic for URL storage/retrieval  
 **RateLimiterService** → Tracks requests per IP using Redis  
 **AnalyticsService** → Counts clicks in Redis, syncs to DB on demand  
+**URLExpiryCleanupService** → Daily background job to delete expired URLs  
 **URLRepository** → Redis cache layer with failover  
 **URLMappingRepository, URLAnalyticsRepository** → JPA database layers  
 **IDConverter** → Base62 encoding/decoding  
@@ -125,6 +143,28 @@ Tests cover ID increments, atomic analytics, Redis failures, and database fallba
 
 ---
 
+## URL Expiry
+
+URLs can optionally expire. Set `expiresAt` when creating a URL:
+
+```json
+{
+  "url": "https://example.com",
+  "expiresAt": 1737220000000
+}
+```
+
+**How it works:**
+- Expired URLs return 404 when accessed
+- Expired record is deleted immediately (lazy deletion)
+- Daily cleanup job at midnight deletes all expired URLs in bulk
+
+**Why two deletion strategies?**
+- **Lazy deletion**: Fast response on redirect, no delay
+- **Bulk cleanup**: Prevents database bloat from URLs expiring without being accessed
+
+---
+
 ## Interview Talking Points
 
 **Why only rate limit creation?** Creating URLs can be abused to fill the database. Redirects are the core experience. Real-world services do the same thing.
@@ -146,3 +186,11 @@ Tests cover ID increments, atomic analytics, Redis failures, and database fallba
 - **Database**: H2
 - **ORM**: Spring Data JPA
 - **Build**: Gradle
+
+---
+
+## Future Improvements
+
+- Custom aliases
+- Distributed ID generation
+- Geo-based analytics

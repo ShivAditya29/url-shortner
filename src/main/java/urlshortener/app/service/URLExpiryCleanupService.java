@@ -24,6 +24,7 @@ public class URLExpiryCleanupService {
     /**
      * Scheduled job that runs once per day at midnight to clean up expired URLs.
      * Uses cron expression: "0 0 0 * * *" (midnight every day)
+     * Runs daily to prevent database bloat from expired URLs that were never accessed (lazy deletion only catches accessed ones).
      */
     @Scheduled(cron = "0 0 0 * * *")
     public void cleanupExpiredUrls() {
