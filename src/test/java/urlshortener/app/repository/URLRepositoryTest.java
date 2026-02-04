@@ -1,30 +1,30 @@
 package urlshortener.app.repository;
 
-import ai.grakn.redismock.RedisServer;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import redis.clients.jedis.Jedis;
-
-import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class URLRepositoryTest {
-    private static RedisServer server;
-    @BeforeClass public static void setupServer() throws IOException {
-        server = RedisServer.newRedisServer(6789);
-        server.start();
-    }
+    private Jedis jedis;
+    private URLRepository urlRepository;
 
-    @AfterClass public static void shutdownServer() throws IOException {
-        server.stop();
+    @Before
+    public void setUp() {
+        AtomicLong counter = new AtomicLong(0L);
+        jedis = mock(Jedis.class);
+        when(jedis.ping()).thenReturn("PONG");
+        when(jedis.incr(anyString())).thenAnswer(invocation -> counter.incrementAndGet());
+        urlRepository = new URLRepository(jedis, "id", "url:");
     }
 
     @Test
     public void test_incrementID_StartsAt0AndIncrements() {
-        URLRepository urlRepository = new URLRepository(new Jedis(server.getHost(), server.getBindPort())
-                , "id", "url:");
         for (long expectedId = 0L; expectedId < 50L; ++expectedId) {
             long actualId = urlRepository.incrementID();
             assertEquals(expectedId, actualId);
